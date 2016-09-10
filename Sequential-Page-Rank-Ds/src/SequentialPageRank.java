@@ -134,14 +134,17 @@ public class SequentialPageRank {
     				.forEach(node->rankValuesIntermmediate.get(node).add(rankValues.get(entry.getKey()).getVal()/size));	
     			}
     			else{
-    				entry.getValue().forEach(outBoundNode->
+    				entry.getValue().stream().parallel().forEach(outBoundNode->
     					rankValuesIntermmediate
     					.get(outBoundNode)
     					.add(rankValues.get(entry.getKey()).getVal()/entry.getValue().size()));
     			}
     			});
+    		final double DF_FACTOR=(1-df)/size;
     		//factor in the damping factor
-    		rankValuesIntermmediate.entrySet().parallelStream().forEach(entry->entry.getValue().multiply(df).add((1-df)/size));
+    		rankValuesIntermmediate.entrySet()
+    		.parallelStream()
+    		.forEach(entry->entry.getValue().multiply(df).add(DF_FACTOR));
     		rankValues=rankValuesIntermmediate;
     	});
     	    	
@@ -165,11 +168,11 @@ public class SequentialPageRank {
                 //sort by page rank
                 .sorted(Map.Entry.comparingByValue(Collections.reverseOrder()))
                 //limit to top 10
-                .limit(10)
+                //.limit(10)
                 //create output
                 .forEachOrdered(entry->output.append("Page: "+entry.getKey()+" : Rank: "+entry.getValue().getVal()+"\n"));
     	String outputResult=output.toString();
-    	System.out.println("No of iterations:"+iterations+"\n"+outputResult);
+    	System.out.println("No of iterations:"+iterations+"\n"+outputResult.substring(0, getNthOccurenceOf(outputResult, "\n", 10)));
     	//writing output to file
     	Files.write(Paths.get(outputFile),outputResult.getBytes());
     }
@@ -180,5 +183,17 @@ public class SequentialPageRank {
         sequentialPR.loadInput();
         sequentialPR.calculatePageRank();
         sequentialPR.printValues();
+    }
+    
+    private int getNthOccurenceOf(String text,String pattern,int n){
+    	int index=text.indexOf(pattern,0);
+    	
+    	while(--n>0 && index!=-1){
+    		index=text.indexOf(pattern,index+1);
+    	}
+    	if(index==-1){
+    		index=text.length()-1;
+    	}
+    	return index;
     }
 }
