@@ -14,8 +14,8 @@ import java.util.stream.IntStream;
 
 public class ParallelPageRank implements PageRank{
 	
-	public static class AtomicDouble implements Comparable<AtomicDouble>{
-		private double val;
+	private static class AtomicDouble implements Comparable<AtomicDouble>{
+		private volatile double val;
 		AtomicDouble(double val){
 			this.val=val;
 		}
@@ -26,6 +26,10 @@ public class ParallelPageRank implements PageRank{
 			val*=val1;
 			return this;
 		}
+		/**
+		 * Not synchronized. Do not use in mutithreaded procedure.
+		 * @return
+		 */
 		public double getVal(){
 			return val;
 		}
@@ -180,10 +184,12 @@ public class ParallelPageRank implements PageRank{
 
     public static void main(String[] args) throws IOException {
         PageRank sequentialPR = new ParallelPageRank();
+        long start=System.currentTimeMillis();
         sequentialPR.parseArgs(args);
         sequentialPR.loadInput();
         sequentialPR.calculatePageRank();
         sequentialPR.printValues();
+        System.out.println("Parallel Execution Completed in:"+(System.currentTimeMillis()-start)+"ms");
     }
     
     private int getNthOccurenceOf(String text,String pattern,int n){

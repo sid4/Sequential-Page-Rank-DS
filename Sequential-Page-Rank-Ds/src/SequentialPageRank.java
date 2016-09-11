@@ -13,24 +13,29 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class SequentialPageRank implements PageRank{
-	
-	public static class AtomicDouble implements Comparable<AtomicDouble>{
+	/**
+	 * To maintain consistency with parallel version. No utility as such.
+	 * @author Siddharth Jain
+	 *
+	 */
+	private static class WrappedDouble implements Comparable<WrappedDouble>{
 		private double val;
-		AtomicDouble(double val){
+		WrappedDouble(double val){
 			this.val=val;
 		}
-		public synchronized void  add(double val1){
+		public void  add(double val1){
 			val+=val1;
 		}
-		public synchronized AtomicDouble  multiply(double val1){
+		public WrappedDouble  multiply(double val1){
 			val*=val1;
 			return this;
 		}
+		
 		public double getVal(){
 			return val;
 		}
 		@Override
-		public int compareTo(AtomicDouble other){
+		public int compareTo(WrappedDouble other){
 			return Double.compare(val, other.getVal());
 		}
 	}
@@ -48,7 +53,7 @@ public class SequentialPageRank implements PageRank{
     // number of URLs
     private int size = 0;
     // calculating rank values
-    private ConcurrentMap<Integer, AtomicDouble> rankValues = new ConcurrentHashMap<Integer, AtomicDouble>();
+    private ConcurrentMap<Integer, WrappedDouble> rankValues = new ConcurrentHashMap<Integer, WrappedDouble>();
 
     /**
      * Parse the command line arguments and update the instance variables. Command line arguments are of the form
@@ -118,13 +123,14 @@ public class SequentialPageRank implements PageRank{
     public void calculatePageRank() {
     	
     	//iteration 0: initialize the page rank of all the nodes to 1/n
-    	adjMatrix.keySet().stream().forEach(key->rankValues.put(key,new AtomicDouble(1.0/size)));
+    	adjMatrix.keySet().stream().forEach(key->rankValues.put(key,new WrappedDouble(1.0/size)));
     	
     	IntStream
     	.rangeClosed(1, iterations)
     	.forEach(i->{
     		//using outbound approach for calculating ranks
-    		ConcurrentMap<Integer, AtomicDouble> rankValuesIntermmediate=adjMatrix.keySet().stream().collect(Collectors.toConcurrentMap(Function.identity(), t->new AtomicDouble(0.0))); 		
+    		//Map for intermmediate rank values
+    		ConcurrentMap<Integer, WrappedDouble> rankValuesIntermmediate=adjMatrix.keySet().stream().collect(Collectors.toConcurrentMap(Function.identity(), t->new WrappedDouble(0.0))); 		
     		adjMatrix.entrySet().stream()
     		.forEach(entry->{
     			//handle dangling node
@@ -178,10 +184,13 @@ public class SequentialPageRank implements PageRank{
 
     public static void main(String[] args) throws IOException {
         PageRank sequentialPR = new SequentialPageRank();
+        long start=System.currentTimeMillis();
         sequentialPR.parseArgs(args);
         sequentialPR.loadInput();
         sequentialPR.calculatePageRank();
         sequentialPR.printValues();
+        System.out.println("Sequential Execution Completed in:"+(System.currentTimeMillis()-start)+"ms");
+
     }
     
     private int getNthOccurenceOf(String text,String pattern,int n){
