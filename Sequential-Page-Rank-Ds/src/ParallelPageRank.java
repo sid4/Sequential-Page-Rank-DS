@@ -12,7 +12,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-public class SequentialPageRank implements PageRank{
+public class ParallelPageRank implements PageRank{
 	
 	public static class AtomicDouble implements Comparable<AtomicDouble>{
 		private double val;
@@ -95,6 +95,7 @@ public class SequentialPageRank implements PageRank{
     	Path inputFilePath=Paths.get(inputFile);
     	//read all lines
 		Files.lines(inputFilePath)
+		.parallel()
 		//split each line 
 		.map(line->line.trim().split(" "))
 		//populate adjacency matrix with given splitted lines
@@ -104,6 +105,7 @@ public class SequentialPageRank implements PageRank{
 					Arrays
 					.stream(splittedLine)
 					.skip(1)
+					.parallel()
 					.map(el->Integer.parseInt(el))
 					.collect(Collectors.toList()));
 		});
@@ -118,22 +120,22 @@ public class SequentialPageRank implements PageRank{
     public void calculatePageRank() {
     	
     	//iteration 0: initialize the page rank of all the nodes to 1/n
-    	adjMatrix.keySet().stream().forEach(key->rankValues.put(key,new AtomicDouble(1.0/size)));
+    	adjMatrix.keySet().parallelStream().forEach(key->rankValues.put(key,new AtomicDouble(1.0/size)));
     	
     	IntStream
     	.rangeClosed(1, iterations)
     	.forEach(i->{
     		//using outbound approach for calculating ranks
-    		ConcurrentMap<Integer, AtomicDouble> rankValuesIntermmediate=adjMatrix.keySet().stream().collect(Collectors.toConcurrentMap(Function.identity(), t->new AtomicDouble(0.0))); 		
-    		adjMatrix.entrySet().stream()
+    		ConcurrentMap<Integer, AtomicDouble> rankValuesIntermmediate=adjMatrix.keySet().parallelStream().collect(Collectors.toConcurrentMap(Function.identity(), t->new AtomicDouble(0.0))); 		
+    		adjMatrix.entrySet().parallelStream()
     		.forEach(entry->{
     			//handle dangling node
     			if(entry.getValue().size()==0){
-    				rankValuesIntermmediate.keySet().stream()
+    				rankValuesIntermmediate.keySet().stream().parallel()
     				.forEach(node->rankValuesIntermmediate.get(node).add(rankValues.get(entry.getKey()).getVal()/size));	
     			}
     			else{
-    				entry.getValue().stream().forEach(outBoundNode->
+    				entry.getValue().stream().parallel().forEach(outBoundNode->
     					rankValuesIntermmediate
     					.get(outBoundNode)
     					.add(rankValues.get(entry.getKey()).getVal()/entry.getValue().size()));
@@ -142,7 +144,7 @@ public class SequentialPageRank implements PageRank{
     		final double DF_FACTOR=(1-df)/size;
     		//factor in the damping factor
     		rankValuesIntermmediate.entrySet()
-    		.stream()
+    		.parallelStream()
     		.forEach(entry->entry.getValue().multiply(df).add(DF_FACTOR));
     		rankValues=rankValuesIntermmediate;
     	});
@@ -163,7 +165,7 @@ public class SequentialPageRank implements PageRank{
     	//Map<Double,Integer> results=new TreeMap<>(Collections.reverseOrder());
     	StringBuilder output=new StringBuilder();
     	rankValues.entrySet()
-                .stream()
+                .parallelStream()
                 //sort by page rank
                 .sorted(Map.Entry.comparingByValue(Collections.reverseOrder()))
                 //limit to top 10
@@ -177,7 +179,7 @@ public class SequentialPageRank implements PageRank{
     }
 
     public static void main(String[] args) throws IOException {
-        PageRank sequentialPR = new SequentialPageRank();
+        PageRank sequentialPR = new ParallelPageRank();
         sequentialPR.parseArgs(args);
         sequentialPR.loadInput();
         sequentialPR.calculatePageRank();
