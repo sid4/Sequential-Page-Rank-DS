@@ -1,16 +1,15 @@
 import java.io.IOException;
+import java.io.Serializable;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -42,8 +41,9 @@ public class PageRankMPI implements PageRank {
     	this.processID=processID;
     	adjMatrix = new ConcurrentHashMap<>();
     	rankValues= new ConcurrentHashMap<Integer, WrappedDouble>();
+    	indegreeMatrix= new ConcurrentHashMap<>();
     }
-	private static class WrappedDouble implements Comparable<WrappedDouble>{
+	private static class WrappedDouble implements Comparable<WrappedDouble>,Serializable{
 		private double val;
 		WrappedDouble(double val){
 			this.val=val;
@@ -77,15 +77,16 @@ public class PageRankMPI implements PageRank {
     public void parseArgs(String[] args) {
 		//only parse args if its a root node ID
     	if (processID == ROOT_NODE_ID) {
-			if (args.length < 4) {
+			if (args.length < 7) {
 				System.err
 						.println("Please invocate the program with following arguments [input file name] [output file name] [iteration count] [damping factor]");
 				System.exit(-1);
 			} else {
-				inputFile = args[0];
-				outputFile = args[1];
-				iterations = Integer.parseInt(args[2]);
-				df = Double.parseDouble(args[3]);
+				Arrays.stream(args).forEach(arg->System.out.println(arg));
+				inputFile = args[3];
+				outputFile = args[4];
+				iterations = Integer.parseInt(args[5]);
+				df = Double.parseDouble(args[6]);
 			}
 		}
     }
@@ -116,39 +117,63 @@ public class PageRankMPI implements PageRank {
 			Path inputFilePath = Paths.get(inputFile);
 			// read all lines
 			Files.lines(inputFilePath)
-					.parallel()
+					//.parallel()
 					// split each line
 					.map(line -> line.trim().split(" "))
 					// populate adjacency matrix with given splitted lines
 					.forEach(
 							(splittedLine) -> {
+								Integer node=Integer.valueOf(Integer
+										.parseInt(splittedLine[0]));
 								adjMatrix.put(
-										Integer.valueOf(Integer
-												.parseInt(splittedLine[0])),
+										node,
 										Arrays.stream(splittedLine)
 												.skip(1)
 												.parallel()
 												.map(el -> Integer.parseInt(el))
 												.collect(Collectors.toList()));
+								if(!indegreeMatrix.containsKey(node)){
+									indegreeMatrix.put(node, new LinkedList<>());
+								}
 							});
 			
 			// initialize size
 			size = adjMatrix.size();
+			System.out.println(size);
 			//populate indegree matrix
 			adjMatrix.entrySet().forEach(entry->{
 				entry.getValue().forEach(node->{
-					if(indegreeMatrix.containsKey(node)){
+				//	if(indegreeMatrix.containsKey(node)){
 						indegreeMatrix.get(node).add(entry.getKey());
-					}
-					else{
-						List<Integer> inbound=new LinkedList<>();
-						inbound.add(entry.getKey());
-						indegreeMatrix.put(node, inbound);
-					}
+				//	}
+//					else{
+//						List<Integer> inbound=new LinkedList<>();
+//						inbound.add(entry.getKey());
+//						indegreeMatrix.put(node, inbound);
+					//}
 				});
 			});
+//			for(Map.Entry<Integer,List<Integer>> entry:adjMatrix.entrySet()){
+//				for(Integer val:entry.getValue()){
+//					if(indegreeMatrix.containsKey(val)){
+//						indegreeMatrix.get(val).add(entry.getKey());
+//					}
+//					else{
+//						List<Integer> inbound=new LinkedList<>();
+//						inbound.add(entry.getKey());
+//						indegreeMatrix.put(val, inbound);
+//					}
+//				}
+//			}
+			System.out.println("indegree:"+indegreeMatrix.size());
+			indegreeMatrix.forEach((k,v)->System.out.println(k+":"+Arrays.toString(v.toArray())));
+
 			//populate outdegree counts and handle dangling nodes by setting outdegree count to size and updating indegreeMatrix
-			outDegreeCount=adjMatrix.entrySet().parallelStream().collect((Collectors.toConcurrentMap(e->e.getKey(),e->{int outdegree; if(e.getValue().size()==0){outdegree=size;indegreeMatrix.values().forEach(v->v.add(e.getKey()));}else{outdegree=e.getValue().size();} return outdegree; })));
+			outDegreeCount=adjMatrix.entrySet().parallelStream().collect((Collectors.toConcurrentMap(e->e.getKey(),e->{int outdegree; if(e.getValue().size()==0){outdegree=size;indegreeMatrix.values().forEach(v->v.add(e.getKey()));adjMatrix.get(e.getKey()).addAll(adjMatrix.keySet());}else{outdegree=e.getValue().size();} return outdegree; })));
+			System.out.println("outdegree");
+			outDegreeCount.forEach((k,v)->System.out.println(k+":"+v));
+			System.out.println("indegree:"+indegreeMatrix.size());
+			indegreeMatrix.forEach((k,v)->System.out.println(k+":"+Arrays.toString(v.toArray())));
 		}
 	}
     /**
@@ -177,7 +202,9 @@ public class PageRankMPI implements PageRank {
     		});
     		//partition data for self
     		indegreeMatrix=indegreeMatrix.entrySet().stream().filter(entry->(entry.getKey()<=partitionSize)).collect(Collectors.toConcurrentMap(t -> t.getKey(), t -> t.getValue()));
+    		System.out.println("___>"+indegreeMatrix.size()+"<____");
     		//outDegreeCount=outDegreeCount.entrySet().stream().filter(entry->(entry.getKey()<=partitionSize)).collect(Collectors.toConcurrentMap(t -> t.getKey(), t -> t.getValue()));
+    		//problem
     		outDegreeCount=outDegreeCount.entrySet().stream().filter(entry-> adjMatrix.get(entry.getKey()).stream().anyMatch(out->indegreeMatrix.containsKey(out))).collect(Collectors.toConcurrentMap(t -> t.getKey(), t -> t.getValue()));
     	}
     	else{
@@ -212,14 +239,42 @@ public class PageRankMPI implements PageRank {
     	//completed intialization of all nodes with indegreeMatrix and outDegreeCount
     	//run page rank on each node/process for given no. of iterations
     	//iteration 0: initialize the page rank of all the nodes to 1/n
-    	adjMatrix.keySet().parallelStream().forEach(key->rankValues.put(key,new WrappedDouble(1.0/size)));
+    	if (processID == ROOT_NODE_ID) {
+    	adjMatrix.keySet()
+    				.parallelStream()
+    				.forEach(key->rankValues.put(key,new WrappedDouble(1.0/size)));
+    	}
     	final double DF_FACTOR=(1-df)/rankValues.size();
     	IntStream
     	.rangeClosed(1, iterations)
     	.forEach(i->{
     		//using inbound approach for calculating ranks
     		distributeGlobalPageRank();
-    		ConcurrentMap<Integer, WrappedDouble> rankValuesIntermmediate=indegreeMatrix.entrySet().parallelStream().collect(Collectors.toConcurrentMap(t -> t.getKey(), t->{return new WrappedDouble(t.getValue().parallelStream().mapToDouble(p->p).reduce(0,(a,b)->{return (rankValues.get((int) a).getVal()/outDegreeCount.get((int) a))+(rankValues.get((int) b).getVal()/outDegreeCount.get((int) b));})).multiply(df).add(DF_FACTOR);}));
+    		System.out.println(rankValues.size());
+    		ConcurrentMap<Integer, WrappedDouble> rankValuesIntermmediate=
+    				indegreeMatrix.entrySet().stream()
+    				.collect(Collectors.
+    						toConcurrentMap(
+    								t -> t.getKey(), 
+    								t->{
+    									return new WrappedDouble
+    											(t.getValue().stream()
+    													.mapToDouble(p->p)
+    													.reduce(0,(a,b)->{
+    														
+    														System.out.println(a+":"+(int)a);
+    														System.out.println(b+":"+(int)b);
+    														System.out.println("a rank val:"+rankValues.get((int)a));
+    														System.out.println("a odc:"+outDegreeCount.get((int)a));
+    														System.out.println("b rank val:"+rankValues.get((int)b));
+    														System.out.println("b odc:"+outDegreeCount.get((int)b));
+
+    														return (
+    																rankValues.get((int) a).getVal()/outDegreeCount.get((int) a))
+    																+
+    																(rankValues.get((int) b).getVal()/outDegreeCount.get((int) b));}
+    													)
+    													).multiply(df).add(DF_FACTOR);}));
     		if (processID == ROOT_NODE_ID) {
     			IntStream
     	    	.range(1,nodes).forEach(j->{
