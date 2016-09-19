@@ -189,10 +189,11 @@ public class SequentialPageRank implements PageRank{
         sequentialPR.loadInput();
         sequentialPR.calculatePageRank();
         sequentialPR.printValues();
-        System.out.println("Sequential Execution Completed in:"+(System.currentTimeMillis()-start)+"ms");
-
+        sequentialPR.printExecutionTime(start);
     }
-    
+    public void printExecutionTime(long start){
+  		System.out.println("Execution Completed in:"+(System.currentTimeMillis()-start)+"ms");
+  	}
     private int getNthOccurenceOf(String text,String pattern,int n){
     	int index=text.indexOf(pattern,0);
     	

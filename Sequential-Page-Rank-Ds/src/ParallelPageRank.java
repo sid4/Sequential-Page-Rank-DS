@@ -189,8 +189,11 @@ public class ParallelPageRank implements PageRank{
         parallelPR.loadInput();
         parallelPR.calculatePageRank();
         parallelPR.printValues();
-        System.out.println("Parallel Execution Completed in:"+(System.currentTimeMillis()-start)+"ms");
+        parallelPR.printExecutionTime(start);
     }
+    public void printExecutionTime(long start){
+		System.out.println("Execution Completed in:"+(System.currentTimeMillis()-start)+"ms");
+	}
     
     private int getNthOccurenceOf(String text,String pattern,int n){
     	int index=text.indexOf(pattern,0);

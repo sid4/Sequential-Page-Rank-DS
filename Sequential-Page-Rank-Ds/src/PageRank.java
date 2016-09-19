@@ -6,4 +6,6 @@ public interface PageRank {
     public void loadInput() throws IOException;
     public void calculatePageRank();
     public void printValues() throws IOException;
+	public void printExecutionTime(long start);
+
 }
