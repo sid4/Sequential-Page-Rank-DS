@@ -40,7 +40,7 @@ public class ParallelPageRank implements PageRank{
 	}
 	
     // adjacency matrix read from file
-    private Map<Integer, List<Integer>> adjMatrix = new ConcurrentHashMap<>();
+    private ConcurrentMap<Integer, List<Integer>> adjMatrix = new ConcurrentHashMap<>();
     // input file name
     private String inputFile = "";
     // output file name
@@ -183,12 +183,12 @@ public class ParallelPageRank implements PageRank{
     }
 
     public static void main(String[] args) throws IOException {
-        PageRank sequentialPR = new ParallelPageRank();
+        PageRank parallelPR = new ParallelPageRank();
         long start=System.currentTimeMillis();
-        sequentialPR.parseArgs(args);
-        sequentialPR.loadInput();
-        sequentialPR.calculatePageRank();
-        sequentialPR.printValues();
+        parallelPR.parseArgs(args);
+        parallelPR.loadInput();
+        parallelPR.calculatePageRank();
+        parallelPR.printValues();
         System.out.println("Parallel Execution Completed in:"+(System.currentTimeMillis()-start)+"ms");
     }
     
