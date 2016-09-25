@@ -190,10 +190,32 @@ public class PageRankMPI implements PageRank {
         		ConcurrentMap<Integer, List<Integer>> indegreeMatrixBuffer[] = new ConcurrentHashMap[1];
         		ConcurrentMap<Integer,Integer> outDegreeCountBuffer[] = new ConcurrentHashMap[1];
         		//populate buffer with corresponding indegree partitioned data to each node/process
-        		indegreeMatrixBuffer[0]=indegreeMatrix.entrySet().stream().filter(entry->(entry.getKey()>(i-1)*partitionSize) && ((i==nodes)?true:(entry.getKey()<=i*partitionSize))).collect(Collectors.toConcurrentMap(t -> t.getKey(), t -> t.getValue()));
+								indegreeMatrixBuffer[0] = indegreeMatrix
+										.entrySet()
+										.stream()
+										.filter(entry -> (entry.getKey() > (i - 1)
+												* partitionSize)
+												&& ((i == nodes) ? true
+														: (entry.getKey() <= i
+																* partitionSize)))
+										.collect(
+												Collectors.toConcurrentMap(
+														t -> t.getKey(),
+														t -> t.getValue()));
         		//populate buffer with corresponding outdegreeCount partitioned data to each node/process
-        		//outDegreeCountBuffer[0]=outDegreeCount.entrySet().stream().filter(entry->(entry.getKey()>(i-1)*partitionSize) && ((i==nodes)?true:(entry.getKey()<=i*partitionSize))).collect(Collectors.toConcurrentMap(t -> t.getKey(), t -> t.getValue()));
-        		outDegreeCountBuffer[0]=outDegreeCount.entrySet().stream().filter(entry-> adjMatrix.get(entry.getKey()).stream().anyMatch(out->indegreeMatrixBuffer[0].containsKey(out))).collect(Collectors.toConcurrentMap(t -> t.getKey(), t -> t.getValue()));
+								outDegreeCountBuffer[0] = outDegreeCount
+										.entrySet()
+										.stream()
+										.filter(entry -> adjMatrix
+												.get(entry.getKey())
+												.stream()
+												.anyMatch(
+														out -> indegreeMatrixBuffer[0]
+																.containsKey(out)))
+										.collect(
+												Collectors.toConcurrentMap(
+														t -> t.getKey(),
+														t -> t.getValue()));
         		//send corresponding indegree partitioned data to each node/process
         		MPI.COMM_WORLD.Send(indegreeMatrixBuffer, 0, 1, MPI.OBJECT, i-1, 1);	
         		//send corresponding outdegreeCount partitioned data to each node/process
