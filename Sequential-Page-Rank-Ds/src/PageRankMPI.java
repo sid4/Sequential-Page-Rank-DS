@@ -71,7 +71,7 @@ public class PageRankMPI implements PageRank {
     
     /**
      * Parse the command line arguments and update the instance variables. Command line arguments are of the form
-     * <input_file_name> <output_file_name> <num_iters> <damp_factor>
+     * <input_file_name> <output_file_name>  <damp_factor> <num_iters>
      *
      * @param args arguments
      */
@@ -85,13 +85,13 @@ public class PageRankMPI implements PageRank {
 			} else {
 				inputFile = args[3];
 				outputFile = args[4];
-				iterations = Integer.parseInt(args[5]);
-				df = Double.parseDouble(args[6]);
+				iterations = Integer.parseInt(args[6]);
+				df = Double.parseDouble(args[5]);
 			}
 		}
     	else{
-    		iterations = Integer.parseInt(args[5]);
-			df = Double.parseDouble(args[6]);
+    		iterations = Integer.parseInt(args[6]);
+			df = Double.parseDouble(args[5]);
     	}
     }
 	 /**
@@ -301,7 +301,7 @@ public class PageRankMPI implements PageRank {
     								t->{
     									return new WrappedDouble
     											(t.getValue()
-    													//making it parallel makes errors
+    													//making it parallel makes errors, need to be investigated
     													.stream()
     													.mapToDouble(p->p)
     													.reduce(0,(a,b)->{
